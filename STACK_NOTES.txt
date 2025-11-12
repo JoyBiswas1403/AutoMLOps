@@ -1,0 +1,6 @@
+# Use this to run the whole stack with observability and Airflow
+# 1) docker compose up -d --build
+# 2) Train initial model: docker compose run --rm trainer python training/src/train.py
+# 3) Promote canary to prod when ready: docker compose run --rm trainer python pipelines/promote_canary.py
+# 4) Airflow UI: http://localhost:8080 (user/pass: admin/admin)
+# 5) MLflow UI: http://localhost:5000 ; Prometheus: http://localhost:9090 ; Grafana: http://localhost:3000

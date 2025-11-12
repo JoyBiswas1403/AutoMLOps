@@ -1,0 +1,180 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mlflow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mlflow}
+      - POSTGRES_DB=${POSTGRES_DB:-mlflow}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT:-9001}"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+    
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minio} ${MINIO_ROOT_PASSWORD:-minio123} &&
+       mc mb -p local/${S3_BUCKET:-mlflow} || true"
+
+  mlflow:
+    build: ./mlflow
+    container_name: mlflow
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    environment:
+      - MLFLOW_BACKEND_URI=postgresql+psycopg2://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow}@postgres:5432/${POSTGRES_DB:-mlflow}
+      - MLFLOW_ARTIFACT_ROOT=s3://${S3_BUCKET:-mlflow}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-minio}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-minio123}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    depends_on:
+      - postgres
+      - minio
+      - minio-init
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  tfserving:
+    image: tensorflow/serving:2.16.1
+    container_name: tfserving
+    ports:
+      - "${TF_SERVING_PORT:-8501}:8501"
+    environment:
+      - MODEL_NAME=${MODEL_NAME:-model}
+    volumes:
+      - ./serving/models/model:/models/${MODEL_NAME:-model}
+    command: ["--model_name=${MODEL_NAME:-model}", "--model_base_path=/models/${MODEL_NAME:-model}"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/v1/models/${MODEL_NAME:-model}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  tfserving_canary:
+    image: tensorflow/serving:2.16.1
+    container_name: tfserving_canary
+    ports:
+      - "8503:8501"
+    environment:
+      - MODEL_NAME=${MODEL_NAME:-model}_canary
+    volumes:
+      - ./serving/models/model_canary:/models/${MODEL_NAME:-model}_canary
+    command: ["--model_name=${MODEL_NAME:-model}_canary", "--model_base_path=/models/${MODEL_NAME:-model}_canary"]
+
+  api:
+    build: ./serving/api
+    container_name: fastapi
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - TF_SERVING_URL_PRIMARY=http://tfserving:8501/v1/models/${MODEL_NAME:-model}:predict
+      - TF_SERVING_URL_CANARY=http://tfserving_canary:8501/v1/models/${MODEL_NAME:-model}_canary:predict
+      - CANARY_ENABLED=${CANARY_ENABLED:-true}
+      - CANARY_PERCENT=${CANARY_PERCENT:-10}
+      - SCALER_PATH=/app/artifacts/scaler.joblib
+      - SCHEMA_PATH=/app/artifacts/schema.json
+    volumes:
+      - ./artifacts:/app/artifacts
+    depends_on:
+      - mlflow
+      - tfserving
+      - tfserving_canary
+
+  trainer:
+    build: ./training
+    container_name: trainer
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - ARTIFACTS_DIR=/app/artifacts
+      - MODELS_DIR=/app/serving/models
+      - MODEL_NAME=${MODEL_NAME:-model}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    volumes:
+      - ./:/app
+    working_dir: /app
+    depends_on:
+      - mlflow
+
+  monitor:
+    build: ./training
+    container_name: monitor
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - ARTIFACTS_DIR=/app/artifacts
+      - MODELS_DIR=/app/serving/models
+      - MODEL_NAME=${MODEL_NAME:-model}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    volumes:
+      - ./:/app
+    working_dir: /app
+    depends_on:
+      - mlflow
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  airflow:
+    build: ./airflow
+    container_name: airflow
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__RBAC=True
+      - _PIP_ADDITIONAL_REQUIREMENTS=
+    volumes:
+      - ./:/app
+      - ./airflow/dags:/opt/airflow/dags
+    ports:
+      - "${AIRFLOW_WEB_PORT:-8080}:8080"
+    command: ["bash", "-lc", "airflow db init && airflow users create --username admin --password admin --firstname a --lastname b --role Admin --email a@b.com || true && airflow webserver & airflow scheduler"]
+    depends_on:
+      - mlflow
+
+volumes:
+  pg_data:
+  minio_data:

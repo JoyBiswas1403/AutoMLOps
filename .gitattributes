@@ -1,0 +1,5 @@
+# Normalize line endings and enforce LF for container scripts
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

@@ -1,0 +1,23 @@
+experiment:
+  name: e2e_mlops
+  model_name: model
+  random_state: 42
+  test_size: 0.2
+  val_size: 0.2
+
+training:
+  epochs: 15
+  batch_size: 64
+  learning_rate: 0.001
+  hidden_units: [64, 32]
+  dropout: 0.1
+
+features:
+  n_features: 20
+  n_informative: 10
+  n_redundant: 2
+  n_classes: 2
+
+monitoring:
+  drift_threshold_ks: 0.15
+  drift_threshold_psi: 0.25
