@@ -14,6 +14,26 @@ This project demonstrates a production-style ML system with:
 - Deployment via TensorFlow Serving
 - FastAPI backend for predictions
 
+Architecture
+
+```mermaid
+flowchart LR
+  A[Data Generation/ Ingestion] --> B[Preprocess/ Feature Eng]
+  B --> C[Training (Keras)]
+  C -->|Autolog| D[MLflow Tracking/Registry]
+  C -->|SavedModel| E[TF Serving - Canary]
+  C -->|Model Card| D
+  E -->|Promote| F[TF Serving - Production]
+  F --> G[FastAPI Inference]
+  G -->|Latency/Err/Vol| H[Prometheus]
+  H --> I[Grafana]
+  J[Drift Detector (Evidently/whylogs)] -->|KS/PSI| H
+  J -->|Retrain Trigger| C
+  K[Airflow] -.-> C
+  K -.-> J
+  K -.-> E
+```
+
 Quickstart
 1) Start core services (MLflow, TF Serving, API):
    - Install Docker Desktop
@@ -51,10 +71,11 @@ Tech choices
 - KS test + PSI for drift; threshold is configurable
 - Prefect flow provided as an example orchestrator (optional)
 
-Architecture
-
-```mermaid
-flowchart LR
+Screenshots (add yours for recruiters)
+- MLflow run: docs/screenshots/mlflow_run.png
+- Grafana dashboard: docs/screenshots/grafana_dashboard.png
+- Evidently UI: docs/screenshots/evidently_drift.png
+- FastAPI docs: docs/screenshots/fastapi_docs.png
   A[Data Generation/ Ingestion] --> B[Preprocess/ Feature Eng]
   B --> C[Training (Keras)]
   C -->|Autolog| D[MLflow Tracking/Registry]
@@ -80,24 +101,29 @@ Repository layout
 - pipelines/: Prefect flow for end-to-end orchestration (optional)
 - .github/workflows/ci.yml: Lint/test and build
 
-Outcomes and example metrics
+Results and metrics (example data)
 - Latency p90: ~50–80 ms (local, batch size 1)
-- Error rate: < 1% on happy path
-- Drift (KS/PSI): detectable with simulated shift of 0.7 on half features
-- AUC improvement: canary runs typically ~0.98 AUC on synthetic dataset
-- Live metrics: drift_ks_mean, drift_psi_mean, fastapi_requests_total{route,status}, fastapi_inference_latency_ms_bucket
+- Error rate: < 1% (HTTP 5xx and validation errors tracked)
+- Drift (KS/PSI): detectable with simulated shift of 0.7 on half features; KS_mean ~0.2, PSI_mean ~0.3
+- Before/After retrain: AUC 0.985 → 0.989; ACC 0.962 → 0.968 (synthetic)
+- Live metrics: drift_ks_mean, drift_psi_mean, fastapi_requests_total{route,status}, fastapi_inference_latency_ms_bucket, model_version{route}
 
 Notes
 - By default, artifacts/runs are persisted to Docker volumes; delete volumes to reset.
 - Model updates create a new numeric version directory. TF Serving automatically picks the latest.
 - For production, consider moving to remote artifact stores and a managed DB for MLflow.
 
-Demo video (optional)
+Demo video (optional but highly recommended)
 - Record a 2–3 minute screencast covering: training, MLflow UI, Grafana dashboards, /predict calls, simulated drift → retrain → promotion.
 - Place the video link here: [Demo video](https://your-demo-link)
+- Use docs/demo_script.md as a step-by-step checklist.
 
 Repository topics (set in GitHub UI)
 - Recommended: mlops, mlflow, tensorflow-serving, docker, grafana, prometheus, airflow, feature-store, feast, evidently, whylogs, canary-deployments, model-registry
+
+Model & data cards
+- A model card is generated at artifacts/reports/model_card.md and logged to MLflow under artifacts.
+- You can extend this with data cards (dataset provenance, splits, quality checks) and link in README.
 
 Troubleshooting
 - If MLflow doesn’t start on Windows: CRLF line endings can break shell entrypoints. This stack runs MLflow directly via the Dockerfile to avoid CRLF issues.
