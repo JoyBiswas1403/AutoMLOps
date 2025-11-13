@@ -128,11 +128,13 @@ services:
       - ARTIFACTS_DIR=/app/artifacts
       - MODELS_DIR=/app/serving/models
       - MODEL_NAME=${MODEL_NAME:-model}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - EVIDENTLY_WORKSPACE=/app/evidently_workspace
     volumes:
       - ./:/app
+      - ./evidently_workspace:/app/evidently_workspace
+    working_dir: /app
+    depends_on:
+      - mlflow
     working_dir: /app
     depends_on:
       - mlflow
@@ -171,6 +173,15 @@ services:
     ports:
       - "9091:9091"
 
+  evidently_ui:
+    image: evidently/evidently:latest
+    container_name: evidently_ui
+    command: ["bash","-lc","evidently ui --workspace /workspace --host 0.0.0.0 --port 9000"]
+    volumes:
+      - ./evidently_workspace:/workspace
+    ports:
+      - "9002:9000"
+
   airflow:
     build: ./airflow
     container_name: airflow
@@ -196,6 +207,16 @@ services:
       - "8505:8505"
     depends_on:
       - mlflow
+
+  feast:
+    image: python:3.11-slim
+    container_name: feast
+    working_dir: /repo
+    volumes:
+      - ./feature_store/feast_feature_repo:/repo
+    command: ["bash","-lc","pip install -r /repo/../requirements.txt && tail -f /dev/null"]
+    depends_on:
+      - redis
 
 volumes:
   pg_data:

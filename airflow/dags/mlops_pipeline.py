@@ -14,6 +14,7 @@ from drift.detect_drift import detect_and_optionally_retrain
 from pipelines.auto_promote import main as auto_promote_main, q as prom_q
 from pipelines.promote_canary import promote_canary_to_production
 from pipelines.notify import send as notify
+from pipelines.traffic import set_canary
 from pipelines.auto_rollback import main as auto_rollback_main
 
 def _notify_failure(context):
@@ -70,6 +71,10 @@ def _promote():
 def _auto_rollback():
     auto_rollback_main(apply=True)
 
+
+def _rollout(p: int) -> bool:
+    return set_canary(p)
+
 with DAG(
     dag_id="mlops_pipeline",
     default_args=DEFAULT_ARGS,
@@ -82,8 +87,17 @@ with DAG(
     drift = PythonOperator(task_id="check_drift", python_callable=_drift)
     evaluate = ShortCircuitOperator(task_id="evaluate_canary", python_callable=_evaluate_canary)
     wait_stable = PythonSensor(task_id="wait_stability", python_callable=_is_stable, poke_interval=60, timeout=60*30, mode="poke")
+
+    rollout10 = ShortCircuitOperator(task_id="rollout_10", python_callable=lambda: _rollout(10))
+    wait10 = PythonSensor(task_id="wait_10_stable", python_callable=_is_stable, poke_interval=60, timeout=60*30, mode="poke")
+    rollout25 = ShortCircuitOperator(task_id="rollout_25", python_callable=lambda: _rollout(25))
+    wait25 = PythonSensor(task_id="wait_25_stable", python_callable=_is_stable, poke_interval=60, timeout=60*30, mode="poke")
+    rollout50 = ShortCircuitOperator(task_id="rollout_50", python_callable=lambda: _rollout(50))
+    wait50 = PythonSensor(task_id="wait_50_stable", python_callable=_is_stable, poke_interval=60, timeout=60*30, mode="poke")
+    rollout100 = ShortCircuitOperator(task_id="rollout_100", python_callable=lambda: _rollout(100))
+
     approval = ShortCircuitOperator(task_id="await_approval", python_callable=_approval_gate)
     promote = PythonOperator(task_id="promote_canary", python_callable=_promote)
     rollback = PythonOperator(task_id="auto_rollback", python_callable=_auto_rollback)
 
-    train >> drift >> evaluate >> wait_stable >> approval >> promote >> rollback
+    train >> drift >> evaluate >> wait_stable >> rollout10 >> wait10 >> rollout25 >> wait25 >> rollout50 >> wait50 >> rollout100 >> approval >> promote >> rollback

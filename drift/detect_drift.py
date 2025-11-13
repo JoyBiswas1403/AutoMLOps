@@ -10,6 +10,11 @@ from training.src import data_ingestion, preprocess
 from training.src.train import train_and_deploy
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
 from pipelines.notify import send as notify
+import os
+try:
+    from evidently.ui.workspace import Workspace
+except Exception:
+    Workspace = None
 
 # Evidently/whylogs
 from evidently.report import Report
@@ -134,6 +139,18 @@ def detect_and_optionally_retrain(simulate: bool = False) -> dict:
         gks.set(ks_mean)
         gpsi.set(psi_mean)
         push_to_gateway('pushgateway:9091', job='drift', registry=reg)
+    except Exception:
+        pass
+
+    # Save to Evidently UI workspace (optional)
+    try:
+        ws_path = os.getenv("EVIDENTLY_WORKSPACE", str(ARTIFACTS_DIR.parent / "evidently_workspace"))
+        if Workspace is not None:
+            ws = Workspace.create(ws_path) if not os.path.exists(ws_path) else Workspace(ws_path)
+            project = ws.get_or_create_project("drift-monitoring")
+            if report_path and os.path.exists(report_path):
+                project.add_report(str(report_path))
+            ws.save()
     except Exception:
         pass
 
