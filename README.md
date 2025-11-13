@@ -23,30 +23,31 @@ This project demonstrates **real MLOps engineering** — the same workflow used 
 ```mermaid
 flowchart TB
     subgraph DATA[Data Layer]
-        A[Data Generator / Dataset] --> B[Preprocessing]
+        data_gen[Data Generator] --> preprocess[Preprocessing]
     end
 
     subgraph TRAIN[Training Pipeline]
-        B --> C[Trainer (TF/Keras)]
-        C --> D[MLflow Tracking]
-        C --> E[Model Export (SavedModel)]
+        preprocess --> trainer[Trainer]
+        trainer --> mlflow[MLflow Tracking]
+        trainer --> export_model[Model Export (SavedModel)]
     end
 
     subgraph DEPLOY[Deployment]
-        E --> F[TensorFlow Serving]
-        F --> G[FastAPI Inference API]
+        export_model --> tfserving[TensorFlow Serving]
+        tfserving --> api[FastAPI Inference API]
     end
 
     subgraph MONITOR[Monitoring & Retraining]
-        G --> H[Prometheus Metrics]
-        H --> I[Grafana Dashboard]
-        B --> J[Data Drift Detector]
-        J -->|Drift Found| C
+        api --> prometheus[Prometheus Metrics]
+        prometheus --> grafana[Grafana Dashboard]
+        preprocess --> drift[Data Drift Detector]
+        drift -->|Drift Found| trainer
     end
 
-    G --> K[Users / Applications]
-    D --> L[MLflow UI (Experiments & Registry)]
+    api --> users[Users / Applications]
+    mlflow --> mlflow_ui[MLflow UI]
 ```
+
 
 ---
 
