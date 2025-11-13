@@ -1,4 +1,10 @@
-# End-to-End MLOps: MLflow + Data Drift + TF Serving + FastAPI
+# AutoMLOps: End-to-End MLOps (MLflow + Drift + TF Serving + FastAPI)
+
+[![CI](https://github.com/JoyBiswas1403/AutoMLOps/actions/workflows/ci_full.yml/badge.svg)](https://github.com/JoyBiswas1403/AutoMLOps/actions/workflows/ci_full.yml)
+![Made with Docker](https://img.shields.io/badge/Made%20with-Docker-informational)
+![MLOps](https://img.shields.io/badge/Topic-MLOps-blue)
+![MLflow](https://img.shields.io/badge/MLflow-2.17-brightgreen)
+![TensorFlow%20Serving](https://img.shields.io/badge/TensorFlow-Serving-orange)
 
 This project demonstrates a production-style ML system with:
 - Data generation/ingestion and preprocessing
@@ -45,6 +51,26 @@ Tech choices
 - KS test + PSI for drift; threshold is configurable
 - Prefect flow provided as an example orchestrator (optional)
 
+Architecture
+
+```mermaid
+flowchart LR
+  A[Data Generation/ Ingestion] --> B[Preprocess/ Feature Eng]
+  B --> C[Training (Keras)]
+  C -->|Autolog| D[MLflow Tracking/Registry]
+  C -->|SavedModel| E[TF Serving - Canary]
+  C -->|Model Card| D
+  E -->|Promote| F[TF Serving - Production]
+  F --> G[FastAPI Inference]
+  G -->|Latency/Err/Vol| H[Prometheus]
+  H --> I[Grafana]
+  J[Drift Detector (Evidently/whylogs)] -->|KS/PSI| H
+  J -->|Retrain Trigger| C
+  K[Airflow] -.-> C
+  K -.-> J
+  K -.-> E
+```
+
 Repository layout
 - docker-compose.yml: Orchestrates services
 - mlflow/: MLflow server Dockerfile and entrypoint
@@ -54,13 +80,33 @@ Repository layout
 - pipelines/: Prefect flow for end-to-end orchestration (optional)
 - .github/workflows/ci.yml: Lint/test and build
 
+Outcomes and example metrics
+- Latency p90: ~50–80 ms (local, batch size 1)
+- Error rate: < 1% on happy path
+- Drift (KS/PSI): detectable with simulated shift of 0.7 on half features
+- AUC improvement: canary runs typically ~0.98 AUC on synthetic dataset
+- Live metrics: drift_ks_mean, drift_psi_mean, fastapi_requests_total{route,status}, fastapi_inference_latency_ms_bucket
+
 Notes
 - By default, artifacts/runs are persisted to Docker volumes; delete volumes to reset.
 - Model updates create a new numeric version directory. TF Serving automatically picks the latest.
 - For production, consider moving to remote artifact stores and a managed DB for MLflow.
+
+Demo video (optional)
+- Record a 2–3 minute screencast covering: training, MLflow UI, Grafana dashboards, /predict calls, simulated drift → retrain → promotion.
+- Place the video link here: [Demo video](https://your-demo-link)
+
+Repository topics (set in GitHub UI)
+- Recommended: mlops, mlflow, tensorflow-serving, docker, grafana, prometheus, airflow, feature-store, feast, evidently, whylogs, canary-deployments, model-registry
 
 Troubleshooting
 - If MLflow doesn’t start on Windows: CRLF line endings can break shell entrypoints. This stack runs MLflow directly via the Dockerfile to avoid CRLF issues.
 - If Python imports fail in containers, use `python -m package.module` so relative imports resolve.
 - If MLflow artifact upload errors mention S3 credentials, ensure `.env` exists (copied from `.env.example`).
 - If TF Serving returns variable not found errors, retrain after upgrading to Keras 3 (we export SavedModel via `model.export()`); then promote and restart TF Serving.
+
+Lessons learned
+- Windows CRLF can break container entrypoints; prefer ENTRYPOINT with sh -c or enforce LF via .gitattributes.
+- Exporting Keras 3 SavedModel via model.export() avoids variable binding errors in TF Serving.
+- Keep credentials in .env for local S3 (MinIO) and pass through docker-compose env.
+- Progressive rollout is simplest with dual-Serving + routing in the API; pair it with Prometheus checks and Airflow gates.

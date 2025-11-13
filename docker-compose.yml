@@ -187,6 +187,16 @@ services:
     depends_on:
       - mlflow
 
+  streamlit:
+    build: ./streamlit
+    container_name: streamlit
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    ports:
+      - "8505:8505"
+    depends_on:
+      - mlflow
+
 volumes:
   pg_data:
   minio_data:

@@ -25,7 +25,7 @@ jobs:
           flake8 .
       - name: Tests
         run: |
-          pytest -q || true
+          pytest -q
 
   build-images:
     runs-on: ubuntu-latest
