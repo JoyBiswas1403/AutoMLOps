@@ -35,12 +35,27 @@ LAT_HIST = Histogram(
 # Gauges for MLflow model metrics
 G_MODEL_AUC = Gauge("model_test_auc", "Model test AUC by stage", ["stage"]) 
 G_MODEL_ACC = Gauge("model_test_acc", "Model test ACC by stage", ["stage"]) 
+G_MODEL_VERSION = Gauge("model_version", "Model version served by route", ["route"]) 
+G_CANARY_PERCENT = Gauge("canary_traffic_percent", "Configured canary traffic percent")
 
-app = FastAPI(title="MLOps E2E API", version="1.1")
+app = FastAPI(title="MLOps E2E API", version="1.2")
 
 
 class PredictRequest(BaseModel):
     instances: List[List[float]]
+
+
+@app.post("/traffic")
+async def set_canary_percent(percent: int):
+    global CANARY_PERCENT
+    if percent < 0 or percent > 100:
+        raise HTTPException(status_code=400, detail="percent must be 0..100")
+    CANARY_PERCENT = int(percent)
+    try:
+        G_CANARY_PERCENT.set(CANARY_PERCENT)
+    except Exception:
+        pass
+    return {"canary_percent": CANARY_PERCENT}
 
 
 def load_scaler_and_schema():
@@ -59,17 +74,31 @@ def load_scaler_and_schema():
 
 @app.get("/health")
 async def health():
-    # Ping primary and canary TF Serving endpoints
+    # Ping primary and canary TF Serving endpoints and set version gauge
     statuses = {}
     for name, url in {"primary": TF_SERVING_URL_PRIMARY, "canary": TF_SERVING_URL_CANARY}.items():
         if not url:
             statuses[name] = None
             continue
         try:
-            r = requests.get(url.replace(":predict", ""), timeout=2)
+            base = url.replace(":predict", "")
+            r = requests.get(base, timeout=2)
             statuses[name] = r.status_code
+            # try to fetch version
+            try:
+                info = requests.get(base, timeout=2).json()
+                vers = info.get("model_version_status", [{}])[0].get("version")
+                if vers:
+                    G_MODEL_VERSION.labels(route=name).set(float(vers))
+            except Exception:
+                pass
         except Exception:
             statuses[name] = 0
+    # reflect canary percent
+    try:
+        G_CANARY_PERCENT.set(CANARY_PERCENT)
+    except Exception:
+        pass
     return {"status": "ok", "tf_serving": statuses}
 
 

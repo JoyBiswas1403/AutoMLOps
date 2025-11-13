@@ -10,6 +10,7 @@ from sklearn.metrics import roc_auc_score, accuracy_score
 from .utils import load_config, ARTIFACTS_DIR, MODELS_DIR, next_model_version
 from . import data_ingestion
 from . import preprocess
+from .model_card import generate_model_card
 from pipelines.notify import send as notify
 
 
@@ -95,6 +96,9 @@ def train_and_deploy():
         )
         mlflow.log_artifact(proc["scaler_path"], artifact_path="artifacts")
         mlflow.log_artifact(proc["schema_path"], artifact_path="artifacts")
+        # Model card
+        card = generate_model_card({"test_auc": auc, "test_acc": acc}, tr)
+        mlflow.log_artifact(str(card), artifact_path="artifacts")
 
         # Transition latest to Staging
         try:

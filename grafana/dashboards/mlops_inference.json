@@ -9,6 +9,22 @@
   "links": [],
   "panels": [
     {
+      "type": "timeseries",
+      "title": "Drift (KS/PSI)",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"expr": "drift_ks_mean", "legendFormat": "KS"},
+        {"expr": "drift_psi_mean", "legendFormat": "PSI"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Model Version (Primary)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+      "targets": [{"expr": "model_version{route=\"primary\"}"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "colorMode": "value"}
+    },
+    {
       "type": "stat",
       "title": "Model AUC (Production)",
       "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},

@@ -8,6 +8,7 @@ import mlflow
 from training.src.utils import load_config, ARTIFACTS_DIR
 from training.src import data_ingestion, preprocess
 from training.src.train import train_and_deploy
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
 from pipelines.notify import send as notify
 
 # Evidently/whylogs
@@ -124,6 +125,17 @@ def detect_and_optionally_retrain(simulate: bool = False) -> dict:
             mlflow.log_artifact(str(why_path), artifact_path="drift")
         drift_flag = (ks_mean >= mon["drift_threshold_ks"]) or (psi_mean >= mon["drift_threshold_psi"])
         mlflow.set_tag("drift_detected", str(drift_flag))
+
+    # Push drift metrics to Prometheus Pushgateway
+    try:
+        reg = CollectorRegistry()
+        gks = Gauge('drift_ks_mean', 'Mean KS drift score', registry=reg)
+        gpsi = Gauge('drift_psi_mean', 'Mean PSI drift score', registry=reg)
+        gks.set(ks_mean)
+        gpsi.set(psi_mean)
+        push_to_gateway('pushgateway:9091', job='drift', registry=reg)
+    except Exception:
+        pass
 
     if drift_flag:
         print("Drift detected. Triggering retraining...")

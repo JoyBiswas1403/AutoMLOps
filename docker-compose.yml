@@ -147,6 +147,12 @@ services:
     depends_on:
       - api
 
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
   grafana:
     image: grafana/grafana:11.2.0
     container_name: grafana
@@ -158,6 +164,12 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+
+  pushgateway:
+    image: prom/pushgateway:v1.6.2
+    container_name: pushgateway
+    ports:
+      - "9091:9091"
 
   airflow:
     build: ./airflow
