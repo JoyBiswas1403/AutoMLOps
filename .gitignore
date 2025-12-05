@@ -70,6 +70,8 @@ mlflow/mlflow.db
 training/data/
 artifacts/
 serving/models/
+data/creditcard.csv
+models/
 
 # Docker
 *.pid

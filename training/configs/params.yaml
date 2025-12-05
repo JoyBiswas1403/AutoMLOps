@@ -1,3 +1,16 @@
+# =============================================================================
+# AutoMLOps Pipeline Configuration
+# =============================================================================
+# Set data.source to "real" to use Credit Card Fraud dataset
+# Set data.source to "synthetic" for generated test data
+# =============================================================================
+
+# Data source configuration
+data:
+  source: real  # Options: "synthetic" or "real"
+  undersample: true  # Undersample majority class for real data
+  undersample_ratio: 5.0  # Ratio of negative to positive samples
+
 experiment:
   name: e2e_mlops
   model_name: model
@@ -6,13 +19,15 @@ experiment:
   val_size: 0.2
 
 training:
-  epochs: 15
+  epochs: 20
   batch_size: 64
   learning_rate: 0.001
-  hidden_units: [64, 32]
-  dropout: 0.1
+  hidden_units: [128, 64, 32]  # Larger network for real data
+  dropout: 0.2
 
+# Features config (for synthetic data only)
 features:
+  n_samples: 10000
   n_features: 20
   n_informative: 10
   n_redundant: 2

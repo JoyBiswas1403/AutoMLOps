@@ -4,4 +4,4 @@
 # Licensed under MIT License
 # https://github.com/JoyBiswas1403/AutoMLOps
 # =============================================================================
-"""Training module initialization."""
+"""Unit tests for testing __init__.py."""

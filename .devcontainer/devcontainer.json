@@ -1,0 +1,63 @@
+{
+    "name": "AutoMLOps Development",
+    "image": "mcr.microsoft.com/devcontainers/python:3.10",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml",
+                "bierner.markdown-mermaid"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.formatting.provider": "none",
+                "python.linting.enabled": true,
+                "editor.formatOnSave": true,
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.codeActionsOnSave": {
+                        "source.fixAll": "explicit",
+                        "source.organizeImports": "explicit"
+                    }
+                }
+            }
+        }
+    },
+    "postCreateCommand": "pip install -e '.[dev]' && pre-commit install",
+    "forwardPorts": [
+        5000,
+        8000,
+        8501,
+        9090,
+        3000
+    ],
+    "portsAttributes": {
+        "5000": {
+            "label": "MLflow"
+        },
+        "8000": {
+            "label": "FastAPI"
+        },
+        "8501": {
+            "label": "TF Serving"
+        },
+        "9090": {
+            "label": "Prometheus"
+        },
+        "3000": {
+            "label": "Grafana"
+        }
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder}/data,target=/workspaces/AutoMLOps/data,type=bind"
+    ],
+    "remoteEnv": {
+        "PYTHONPATH": "/workspaces/AutoMLOps"
+    }
+}
