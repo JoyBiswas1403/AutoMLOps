@@ -15,7 +15,10 @@ Built with **real fraud detection data** from Kaggle, featuring **SHAP explainab
 
 ## 🎥 Demo
 
-![AutoMLOps Demo](docs/demo.webp)
+> **Quick Start:** `docker compose up -d --build` then visit:
+> - 📊 **MLflow UI:** http://localhost:5000
+> - 🚀 **FastAPI Docs:** http://localhost:8000/docs
+> - 📈 **Grafana:** http://localhost:3000
 
 ---
 
