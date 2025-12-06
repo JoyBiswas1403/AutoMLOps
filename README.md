@@ -5,19 +5,14 @@
 [![MLflow](https://img.shields.io/badge/MLflow-Tracking%20%26%20Registry-0194E2?logo=mlflow)](https://mlflow.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)](tests/)
-[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-
-> **A comprehensive, production-ready MLOps platform demonstrating the complete ML lifecycle — from data ingestion through model deployment, monitoring, and automated retraining.**
-
-Built with **real fraud detection data** from Kaggle, featuring **SHAP explainability**, **Pandera validation**, and **15+ integrated services** — all runnable with a single `docker compose up`.
 
 ## 🎥 Demo
 
+![AutoMLOps Demo](docs/demo.webp)
+
 > **Quick Start:** `docker compose up -d --build` then visit:
-> - 📊 **MLflow UI:** http://localhost:5000
-> - 🚀 **FastAPI Docs:** http://localhost:8000/docs
+> - 📊 **MLflow:** http://localhost:5000
+> - 🚀 **FastAPI:** http://localhost:8000/docs
 > - 📈 **Grafana:** http://localhost:3000
 
 ---
